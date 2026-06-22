@@ -93,13 +93,13 @@ Backend endpoints are implemented in:
 
 ### 1. Install Python dependencies
 From the project root:
-
+```bash
 cd cli
 pip install -r requirements.txt
-
+```
 ### 2. Encode (create a vault image)
 Create a vault with multiple sites 
-
+```bash
 python stegnopass.py encode ^
   --image cover.png ^
   --passphrase "my master secret" ^
@@ -107,3 +107,6 @@ python stegnopass.py encode ^
   --add-password "github.com:MyGithubToken!" ^
   --add-password "bank.com:Str0ngBankPass" ^
   --output vault.png
+
+  PowerShell users may replace ^ line continuations with backticks `.
+```
