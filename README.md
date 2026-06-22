@@ -1,156 +1,110 @@
-Markdown
-# StegnoPass v2 🛡️📷
+# StegnoPass v2 — Encrypted Password Vault Hidden in Images (Steganography + AES-256-GCM)
 
-Hide a vault of passwords inside a single image using steganography + AES-256-GCM.
+**StegnoPass v2** is a password vault system that securely hides credentials inside a *single image* using **LSB steganography**, while protecting the hidden data with **AES-256-GCM** (authenticated encryption).
 
-StegnoPass v2 is a secure, cross-platform, multi-client steganographic password manager that conceals an encrypted JSON vault of credentials inside completely ordinary-looking PNG images. By combining **AES-256-GCM authenticated encryption** with **Spatial Domain Least Significant Bit (LSB) steganography**, it guarantees local-first, zero-network-traffic credential retrieval without relying on a centralized cloud infrastructure.
-
-## What's new in v2
-
-| Feature | Description |
-|---|---|
-| **Multi-password vault** | One image holds `{site: password}` JSON, encrypted as a unit |
-| **Auto site-detection** | Extension reads `window.location.hostname` and fills the right password automatically |
-| **Zero network** | All extraction and decryption runs locally in your browser |
-| **v1 compatibility** | Old single-password images still work |
+The project includes:
+- **Python CLI** for creating and extracting vaults
+- **Browser Extension** for quick auto-fill on password fields (drag & drop workflow)
+- **Web Edition** (Express + React) to encode/decode vault images via browser UI
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
-- **Cross-Platform Interoperability:** A uniform binary payload structure ensures seamless vault generation and decoding across a Python CLI, Node.js/Express backend, and a vanilla JavaScript browser extension.
-- **Zero-Network-Traffic Extension:** A Manifest V3 Chrome extension that intercepts drag-and-drop actions on password fields, parsing pixel data and decrypting vaults 100% locally using the browser's Web Crypto API.
-- **Framework-Compatible Autofill:** Employs native prototype setters and synthetic JavaScript input/change events to successfully bypass state-binding restrictions in React and Vue target fields.
-- **Authenticated Local Vaults:** Uses AES-256-GCM to prevent silent payload tampering, backed by PBKDF2-SHA1 key derivation stretching a user master passphrase over 100,000 iterations.
-- **Intuitive Web Workspace:** Includes a modern React/Vite single-page dashboard featuring an interactive dynamic password matrix for fast encryption/decryption handling.
+### 🔐 Cryptography (Security)
+- **AES-256-GCM** encryption (provides confidentiality + integrity)
+- **PBKDF2** key derivation (PBKDF2-SHA1), using a randomly generated salt
+- Correct decryption requires the correct passphrase (wrong passphrase fails integrity verification)
 
----
+### 🖼️ Steganography (Hiding)
+- **LSB embedding** stores the encrypted payload inside an image’s RGB channels
+- The resulting PNG looks like a normal image without the passphrase
 
-## 🏗️ Architecture & Component Stack
+### 🧰 Multi-password vault (v2 capability)
+- One image contains a vault mapping:  
+  **`{ site -> password }`** stored as a single encrypted JSON payload
+- The CLI and web API can:
+  - **encode** (create a vault image)
+  - **decode** (extract + decrypt)
+  - **list** stored sites
 
-StegnoPass v2 relies on three interoperable components speaking to a uniform binary layer:
-
-| Component | Runtime / Stack | Cryptographic Engine | Steganography Layer |
-| :--- | :--- | :--- | :--- |
-| **Python CLI** | Python 3.x / PyCryptodome | PyCryptodome | Manual LSB Bit-shifting |
-| **Chrome Extension** | Vanilla JS / MV3 | Web Crypto API | HTML5 Canvas API (Manual LSB) |
-| **Web Backend** | Node.js / Express.js | `crypto` (Built-in) | Jimp Engine |
-| **Web Frontend** | React 18 / Vite | *Delegates to Backend* | *Delegates to Backend* |
-
----
-
-## 🔒 Specification & Cryptographic Design
-
-### 1. Binary Payload Wire Format
-Every encoded asset contains a rigid layout compressed inside a Base64 configuration before direct bit-level spatial embedding:
-
-[ SPVT (4B Magic) ] [ Salt (16B) ] [ Nonce (16B) ] [ Ciphertext (N Bytes) ] [ GCM Tag (16B) ]
-
-
-### 2. Encryption Pipeline
-1. A **16-byte cryptographically secure random salt** is provisioned per generation instance.
-2. Key stretching executes via **PBKDF2-SHA1 with 100,000 iterations**, deriving an authoritative **32-byte AES key** from the master passphrase.
-3. The underlying raw JSON map (`{ "site": "password" }`) is processed using **AES-256-GCM** with a distinct **16-byte initialization vector (nonce)**, compiling the ciphertext block alongside a **16-byte authentication tag**.
-
-### 3. Steganography Bit Allocation Engine
-- The payload string translates directly into an **8-bit per character** continuous stream.
-- A **32-bit big-endian unsigned integer** acts as an explicit header declaring total payload bit capacity.
-- The layout steps over cover image pixels in strict raster grid order (**left-to-right, top-to-bottom**), replacing the exact Least Significant Bit of **Red, Green, and Blue** channels uniformly (yielding an allocation density of exactly 3 bits/pixel).
+### 🧩 Compatibility
+- v2 uses a distinct **magic header** to identify supported vault payloads:
+  - **Magic bytes:** `SPVT`
+- Decryption validates the header and fails if the image is not a supported StegnoPass payload.
 
 ---
 
-## 🛠️ Installation & Setup
+## Architecture Overview
 
-### CLI Setup
+### 1) Python CLI (`cli/`)
+Responsible for:
+- LSB embed/extract
+- AES-256-GCM encryption/decryption
+- Vault JSON packing/unpacking
+- Multi-entry encoding and selective decoding
+
+**Main concepts in implementation:**
+- Payload format:
+  - `MAGIC(4 bytes "SPVT") + salt(16) + nonce(16) + ciphertext + tag(16)`
+- Payload is base64-encoded and embedded bit-by-bit into RGB least significant bits.
+
+### 2) Web Edition (`stegnopass-web/`)
+- **Backend (Express.js)** handles:
+  - `POST /api/encode`: upload cover image + passphrase + passwords → returns a generated vault PNG
+  - `POST /api/decode`: upload vault image + passphrase (+ optional site) → returns decrypted entries
+- **Frontend (React + Vite)** provides UI for encode/decode workflows.
+
+Backend endpoints are implemented in:
+- `stegnopass-web/backend/server.js`
+
+### 3) Browser Extension (`extension/`)
+- Loads a hidden payload from the selected/dragged vault image
+- Decrypts locally using the master passphrase
+- Uses current `window.location.hostname` (site) to determine which password to fill
+
+> Note: Extension files are present in the repository; enable it in Chrome/Chromium using Developer Mode (see Testing).
+
+---
+
+## Security Model (What protects you)
+
+- **Authenticated encryption (AES-GCM)**: tampered/incorrect payloads will not decrypt successfully.
+- **Passphrase-based key derivation (PBKDF2)**: brute-force resistance improves via iterative hashing + salt.
+- **No network dependency** for encoding/decoding in the CLI workflow (all local computation).
+- **Stego header validation** using magic bytes `SPVT` to distinguish v2 vault payloads.
+
+---
+
+## Requirements
+
+### Python CLI prerequisites
+- Python 3.x
+- Dependencies listed in `cli/requirements.txt`, including:
+  - `Pillow` (image IO)
+  - `pycryptodome` (AES-GCM + PBKDF2)
+  - `numpy/scipy` (as included in the project requirements)
+
+---
+
+## Testing / How to Run
+
+## A) Test the Python CLI (recommended baseline)
+
+### 1. Install Python dependencies
+From the project root:
+
 ```bash
-cd cli/
+cd cli
 pip install -r requirements.txt
-Web Application Configuration
-Spin up the decoupled client and server environments independently:
 
-Bash
-# Setup Backend Server (Port 3001)
-cd stegnopass-web/backend
-npm install
-npm start
+2. Encode (create a vault image)
+Create a vault with multiple sites
 
-# Setup Frontend Application (Port 5173 via separate terminal)
-cd stegnopass-web/frontend
-npm install
-npm run dev
-Browser Extension Setup
-Unzip / open the extension/ folder.
-
-Go to chrome://extensions in Google Chrome.
-
-Enable Developer mode (top right toggle).
-
-Click Load unpacked and select the project's extension/ folder.
-
-🎯 Usage
-CLI Operations
-Encode — Create or update a vault image
-Bash
-# Single password
-python stegnopass.py encode \
-  --image cover.png \
-  --passphrase "my master secret" \
-  --add-password "gmail.com:MyGmailPass123" \
+python stegnopass.py encode ^
+  --image cover.png ^
+  --passphrase "my master secret" ^
+  --add-password "gmail.com:MyGmailPass123" ^
+  --add-password "github.com:MyGithubToken!" ^
+  --add-password "bank.com:Str0ngBankPass" ^
   --output vault.png
-
-# Multiple passwords in one image
-python stegnopass.py encode \
-  --image cover.png \
-  --passphrase "my master secret" \
-  --add-password "gmail.com:MyGmailPass123" \
-  --add-password "github.com:MyGithubToken!" \
-  --add-password "bank.com:Str0ngBankPass" \
-  --output vault.png
-
-# Update an existing vault (add more passwords iteratively)
-python stegnopass.py encode \
-  --image cover.png \
-  --passphrase "my master secret" \
-  --from-vault vault.png \
-  --add-password "twitter.com:NewTwitterPass" \
-  --output vault_updated.png
-Decode — Retrieve a password
-Bash
-# Get password for a specific site
-python stegnopass.py decode \
-  --image vault.png \
-  --passphrase "my master secret" \
-  --site gmail.com
-
-# Show all passwords
-python stegnopass.py decode \
-  --image vault.png \
-  --passphrase "my master secret"
-List — See which sites are stored
-Bash
-python stegnopass.py list \
-  --image vault.png \
-  --passphrase "my master secret"
-Browser Extension Workflow
-Drag your vault.png onto any password field on any website.
-
-A modal UI layer appears asking for your master passphrase.
-
-The extension performs the following local workflow:
-
-Extracts the hidden payload via local LSB steganography bit parsing using HTML5 Canvas.
-
-Decrypts the AES-256-GCM vault entirely inside the browser's sandbox environment.
-
-Reads window.location.hostname, matches it against vault keys, and injects the credential.
-
-If multiple entries exist or no explicit domain matches, a localized UI dropdown allows manual selection.
-
-🔒 Security Model Summary
-AES-256-GCM with authenticated encryption guarantees absolute data integrity; any unauthorized structural tampering with the underlying payload causes immediate verification rejection.
-
-PBKDF2-SHA1 with 100,000 iterations enforces cryptographic defense against offline brute-force attempts across all native environments (Python, Node.js, and Web Crypto API).
-
-Zero Network Traffic Deployment: Security is localized entirely within the application clients; no passwords, encryption keys, or unmanaged imagery leave the client runtime.
-
-Magic Bytes Validation: Pre-verification using a distinct SPVT magic byte header guarantees structural version checking (discriminating v2 multi-vault structures from v1 single-password configurations) before attempting expensive key extraction cycles.
