@@ -94,12 +94,11 @@ Backend endpoints are implemented in:
 ### 1. Install Python dependencies
 From the project root:
 
-```bash
 cd cli
 pip install -r requirements.txt
 
-2. Encode (create a vault image)
-Create a vault with multiple sites
+### 2. Encode (create a vault image)
+Create a vault with multiple sites 
 
 python stegnopass.py encode ^
   --image cover.png ^
