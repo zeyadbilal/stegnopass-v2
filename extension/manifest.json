@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "StegnoPass",
+  "version": "2.0.0",
+  "description": "Multi-password vault hidden in images. Drag a stego PNG onto any password field.",
+  "permissions": ["activeTab", "scripting"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "StegnoPass"
+  },
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
