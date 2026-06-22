@@ -161,11 +161,11 @@ http://localhost:5173
 
 ### 3. Use the UI
 
-Open the frontend URL in your browser
-Upload a cover image
-Enter the passphrase and password entries
-Encode → download the generated stego vault PNG
-Decode → upload vault PNG + passphrase (+ site if supported by UI)
+- **Open the frontend URL in your browser
+- **Upload a cover image
+- **Enter the passphrase and password entries
+- **Encode → download the generated stego vault PNG
+- **Decode → upload vault PNG + passphrase (+ site if supported by UI)
 
 ## C) Test the Browser Extension (Chrome/Chromium)
 Open Chrome:
